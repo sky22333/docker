@@ -1,2 +1,1 @@
-# docker-images
-docker-images
+- 一次构建，处处运行。
