@@ -19,7 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www/html
 
 RUN git clone --depth=1 ${REPO_URL} /var/www/html \
-    && chown -R www-data:www-data /var/www/html
+    && rm -rf /var/www/html/.git
+
+COPY .htaccess /var/www/html/.htaccess
+
+RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 
