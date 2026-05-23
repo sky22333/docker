@@ -4,10 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: "构建目录名称"
+        description: "手动构建目录名称"
         required: true
         type: string
         default: "acgfaka"
+
+  push:
+    paths:
+      - "**/VERSION"
 
 permissions:
   contents: read
@@ -17,9 +21,53 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  build:
-    name: 构建并推送多架构镜像
+  detect:
+    name: 检测构建目录
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 检测 VERSION 变更
+        id: detect
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            dirs='["${{ inputs.image }}"]'
+          else
+            dirs=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+              | grep -E '(^|/)VERSION$' \
+              | xargs -r -n1 dirname \
+              | sort -u \
+              | jq -R -s -c 'split("\n")[:-1]')
+          fi
+
+          echo "检测到目录: $dirs"
+
+          if [ "$dirs" = "[]" ] || [ -z "$dirs" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "matrix=$dirs" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: 构建并推送镜像
+    needs: detect
+    if: needs.detect.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.detect.outputs.matrix) }}
 
     steps:
       - name: 拉取代码
@@ -27,13 +75,13 @@ jobs:
 
       - name: 检查构建目录
         run: |
-          if [ ! -d "${{ inputs.image }}" ]; then
-            echo "构建目录不存在: ${{ inputs.image }}"
+          if [ ! -d "${{ matrix.image }}" ]; then
+            echo "构建目录不存在: ${{ matrix.image }}"
             exit 1
           fi
 
-          if [ ! -f "${{ inputs.image }}/Dockerfile" ]; then
-            echo "Dockerfile 不存在: ${{ inputs.image }}/Dockerfile"
+          if [ ! -f "${{ matrix.image }}/Dockerfile" ]; then
+            echo "Dockerfile 不存在: ${{ matrix.image }}/Dockerfile"
             exit 1
           fi
 
@@ -50,9 +98,9 @@ jobs:
       - name: 构建并推送镜像
         uses: docker/build-push-action@v7
         with:
-          context: ./${{ inputs.image }}
-          file: ./${{ inputs.image }}/Dockerfile
+          context: ./${{ matrix.image }}
+          file: ./${{ matrix.image }}/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ inputs.image }}
+            ${{ env.IMAGE_NAME }}:${{ matrix.image }}
