@@ -50,7 +50,7 @@ RUN mkdir -p "$OPCACHE_FILE_CACHE_DIR" \
     } > /usr/local/etc/php/conf.d/opcache.ini \
     && echo "date.timezone=${TIMEZONE}" > /usr/local/etc/php/conf.d/timezone.ini
 
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN mkdir -p /run/nginx \
     && chown -R www-data:www-data "$APP_DIR" \
