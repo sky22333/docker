@@ -58,4 +58,4 @@ RUN mkdir -p /run/nginx \
 
 EXPOSE 80
 
-CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "php-fpm -D && exec nginx -g 'daemon off;'"]
