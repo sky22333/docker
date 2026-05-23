@@ -1,0 +1,21 @@
+services:
+  acgfaka:
+    build: .
+    container_name: acgfaka
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    restart: always
+
+  mysql:
+    image: mysql:5.7
+    container_name: mysql-acgfaka
+    environment:
+      MYSQL_ROOT_PASSWORD: acgfaka
+      MYSQL_DATABASE: acgfaka
+      MYSQL_USER: acgfaka
+      MYSQL_PASSWORD: acgfaka
+    volumes:
+      - ./data/acgfaka:/var/lib/mysql
+    restart: always
