@@ -1,4 +1,3 @@
-# 运行时镜像：Alpine 安装 libreswan；构建阶段从 Git 编译 accel-ppp
 ARG ACCEL_PPP_REPO=https://github.com/accel-ppp/accel-ppp.git
 ARG ACCEL_PPP_BRANCH=stable
 
@@ -12,7 +11,8 @@ RUN apk add --no-cache \
         git \
         openssl-dev \
         pcre2-dev \
-        linux-headers
+        linux-headers \
+        libucontext-dev
 
 WORKDIR /src
 RUN git clone --depth 1 --branch "${ACCEL_PPP_BRANCH}" "${ACCEL_PPP_REPO}" .
@@ -34,6 +34,7 @@ RUN apk add --no-cache \
         nss-tools \
         openssl \
         pcre2 \
+        libucontext \
         iproute2 \
         kmod \
         procps-ng \
