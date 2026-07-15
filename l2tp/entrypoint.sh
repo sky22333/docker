@@ -18,8 +18,17 @@ if [ -z "$PUBLIC_IP" ]; then
   PUBLIC_IP="$(curl -fsS --connect-timeout 5 --max-time 10 https://ipinfo.io/ip 2>/dev/null | tr -d '[:space:]' || true)"
 fi
 case "$PUBLIC_IP" in
-  *[!0-9.]*|"") PUBLIC_IP="%any" ;;
+  *[!0-9.]*|"") PUBLIC_IP="" ;;
 esac
+
+LEFT="%defaultroute"
+LEFT_ID="%defaultroute"
+if [ -n "$PUBLIC_IP" ]; then
+  LEFT_ID="$PUBLIC_IP"
+  if ip -4 -o addr show 2>/dev/null | grep -q " ${PUBLIC_IP}/"; then
+    LEFT="$PUBLIC_IP"
+  fi
+fi
 
 cat > /etc/ipsec.d/l2tp-psk.conf <<EOF
 conn l2tp-psk
@@ -29,8 +38,8 @@ conn l2tp-psk
 	rekey=no
 	type=transport
 	keyexchange=ikev1
-	left=%any
-	leftid=${PUBLIC_IP}
+	left=${LEFT}
+	leftid=${LEFT_ID}
 	leftprotoport=17/1701
 	right=%any
 	rightprotoport=17/%any
@@ -77,7 +86,7 @@ for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
   echo 0 > "$f" 2>/dev/null || true
 done
 
-echo "[启动] libreswan + accel-ppp 用户=${USER_NAME} leftid=${PUBLIC_IP}"
+echo "[启动] libreswan + accel-ppp 用户=${USER_NAME} left=${LEFT} leftid=${LEFT_ID}"
 
 ipsec pluto --config /etc/ipsec.conf --nofork --stderrlog &
 PLUTO_PID=$!
