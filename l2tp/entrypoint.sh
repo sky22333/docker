@@ -23,14 +23,14 @@ conn l2tp-psk
 	auto=add
 	rekey=no
 	type=transport
+	keyexchange=ikev1
 	left=${LEFT}
 	leftprotoport=17/1701
 	right=%any
 	rightprotoport=17/%any
-	ike=aes256-sha2;modp2048,aes128-sha1;modp1024
+	ike=aes256-sha2;modp2048,aes128-sha1;modp2048
 	esp=aes256-sha2,aes128-sha1
 	encapsulation=yes
-	ikev2=no
 EOF
 
 if [ ! -f /var/lib/ipsec/nss/cert9.db ]; then
