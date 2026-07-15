@@ -1,0 +1,18 @@
+services:
+  vpn:
+    build: .
+    container_name: l2tp
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      IPSEC_PSK: ChangeMeIPsecPSK!
+      VPN_USER: vpnuser
+      VPN_PASSWORD: ChangeMeNow!
+      # 可选：服务器公网 IP，可留空
+      VPN_PUBLIC_IP: ""
+      POOL_RANGE: 10.10.0.2-254
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - ./ipsec-nss:/var/lib/ipsec/nss
+      - ./vpn-logs:/var/log/accel-ppp
