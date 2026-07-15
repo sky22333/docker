@@ -7,13 +7,29 @@ for m in xfrm_user esp4 ppp_generic pppox l2tp_core l2tp_netlink l2tp_ppp; do
 done
 ```
 
+### Docker
+```
+docker run -d \
+  --name l2tp \
+  --restart unless-stopped \
+  --network host \
+  --privileged \
+  --volume /lib/modules:/lib/modules:ro \
+  --volume ./ipsec-nss:/var/lib/ipsec/nss \
+  --volume ./vpn-logs:/var/log/accel-ppp \
+  -e IPSEC_PSK="ChangeMeIPsecPSK!" \
+  -e VPN_USER="vpnuser" \
+  -e VPN_PASSWORD="ChangeMeNow!" \
+  -e VPN_PUBLIC_IP="" \
+  -e POOL_RANGE="10.10.0.2-254" \
+  ghcr.io/sky22333/docker:l2tp
+```
+
 ### 常用命令
 
 ```bash
-docker compose up -d
-docker compose logs -f
+docker logs -f l2tp
 docker exec l2tp accel-cmd show sessions
-docker compose down
 ```
 
 ---
