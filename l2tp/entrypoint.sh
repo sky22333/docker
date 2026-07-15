@@ -27,21 +27,13 @@ esac
 if [ -n "$PUBLIC_IP" ]; then
   LEFT="%defaultroute"
   LEFT_ID="$PUBLIC_IP"
-  echo "[入口] 服务端公网 IP=${PUBLIC_IP}"
+  echo "[入口] 服务端公网 IP=${PUBLIC_IP}（left=%defaultroute leftid=${PUBLIC_IP}）"
 else
   echo "[入口] 警告：未能确定公网 IP，IPsec left/leftid 使用 %defaultroute" >&2
 fi
 
 cat > /etc/ipsec.d/l2tp-psk.conf <<EOF
-conn l2tp-psk-nat
-	rightsubnet=vhost:%priv
-	also=l2tp-psk-common
-
-conn l2tp-psk-nonat
-	rightsubnet=vhost:%no
-	also=l2tp-psk-common
-
-conn l2tp-psk-common
+conn l2tp-psk
 	authby=secret
 	pfs=no
 	auto=add
