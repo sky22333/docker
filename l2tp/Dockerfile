@@ -38,6 +38,7 @@ RUN apk add --no-cache \
         iproute2 \
         kmod \
         procps-ng \
+        curl \
     && mkdir -p /etc/accel-ppp /var/log/accel-ppp /var/lib/accel-ppp \
                 /etc/ipsec.d /etc/ppp /var/run/pluto /var/lib/ipsec/nss
 

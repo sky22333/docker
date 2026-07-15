@@ -14,10 +14,34 @@ printf '%%any  %%any  : PSK "%s"\n' "$PSK" > /etc/ipsec.secrets
 chmod 600 /etc/ipsec.secrets
 
 LEFT="%defaultroute"
-[ -n "${VPN_PUBLIC_IP:-}" ] && LEFT="$VPN_PUBLIC_IP"
+LEFT_ID="%defaultroute"
+PUBLIC_IP="${VPN_PUBLIC_IP:-}"
+if [ -z "$PUBLIC_IP" ]; then
+  echo "[入口] 未设置 VPN_PUBLIC_IP，正在获取公网 IP (ipinfo.io)..."
+  PUBLIC_IP="$(curl -fsS --connect-timeout 5 --max-time 10 https://ipinfo.io/ip 2>/dev/null | tr -d '[:space:]' || true)"
+fi
+
+case "$PUBLIC_IP" in
+  *[!0-9.]*|"") PUBLIC_IP="" ;;
+esac
+if [ -n "$PUBLIC_IP" ]; then
+  LEFT="%defaultroute"
+  LEFT_ID="$PUBLIC_IP"
+  echo "[入口] 服务端公网 IP=${PUBLIC_IP}"
+else
+  echo "[入口] 警告：未能确定公网 IP，IPsec left/leftid 使用 %defaultroute" >&2
+fi
 
 cat > /etc/ipsec.d/l2tp-psk.conf <<EOF
-conn l2tp-psk
+conn l2tp-psk-nat
+	rightsubnet=vhost:%priv
+	also=l2tp-psk-common
+
+conn l2tp-psk-nonat
+	rightsubnet=vhost:%no
+	also=l2tp-psk-common
+
+conn l2tp-psk-common
 	authby=secret
 	pfs=no
 	auto=add
@@ -25,12 +49,16 @@ conn l2tp-psk
 	type=transport
 	keyexchange=ikev1
 	left=${LEFT}
+	leftid=${LEFT_ID}
 	leftprotoport=17/1701
 	right=%any
 	rightprotoport=17/%any
-	ike=aes256-sha2;modp2048,aes128-sha1;modp2048
-	esp=aes256-sha2,aes128-sha1
+	ike=aes256-sha2_256;modp2048,aes128-sha1;modp2048
+	phase2alg=aes256-sha2_256,aes128-sha1
 	encapsulation=yes
+	dpddelay=30
+	dpdtimeout=120
+	dpdaction=clear
 EOF
 
 if [ ! -f /var/lib/ipsec/nss/cert9.db ]; then
@@ -65,8 +93,35 @@ if ! echo 1 > /proc/sys/net/ipv4/ip_forward; then
   exit 1
 fi
 
-echo "[启动] libreswan + accel-ppp（L2TP/IPsec 预共享密钥）用户=${USER_NAME}"
+for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
+  echo 0 > "$f" 2>/dev/null || true
+done
+
+echo "[启动] libreswan + accel-ppp（L2TP/IPsec 预共享密钥）用户=${USER_NAME} left=${LEFT} leftid=${LEFT_ID}"
 
 ipsec pluto --config /etc/ipsec.conf --nofork --stderrlog &
+PLUTO_PID=$!
+
+ok=0
+i=0
+while [ "$i" -lt 30 ]; do
+  if kill -0 "$PLUTO_PID" 2>/dev/null \
+    && ipsec briefconnectionstatus 2>/dev/null | grep -q 'loaded [1-9]'; then
+    ok=1
+    break
+  fi
+  i=$((i + 1))
+  sleep 0.2
+done
+
+if [ "$ok" -ne 1 ]; then
+  echo "[入口] 致命错误：IPsec 连接未加载（检查 /etc/ipsec.d/l2tp-psk.conf）" >&2
+  ipsec briefconnectionstatus 2>/dev/null || true
+  kill "$PLUTO_PID" 2>/dev/null || true
+  exit 1
+fi
+
+echo "[IPsec] 连接已加载："
+ipsec briefconnectionstatus 2>/dev/null || true
 
 exec accel-pppd -c /etc/accel-ppp/accel-ppp.conf
