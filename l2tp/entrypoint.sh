@@ -22,12 +22,14 @@ case "$PUBLIC_IP" in
 esac
 
 LEFT="%defaultroute"
-LEFT_ID="%defaultroute"
+LEFT_ID_LINE=""
 if [ -n "$PUBLIC_IP" ]; then
-  LEFT_ID="$PUBLIC_IP"
+  LEFT_ID_LINE="	leftid=${PUBLIC_IP}"
   if ip -4 -o addr show 2>/dev/null | grep -q " ${PUBLIC_IP}/"; then
     LEFT="$PUBLIC_IP"
   fi
+else
+  echo "[入口] 警告：未获取到公网 IP，请设置 VPN_PUBLIC_IP；leftid 将跟随 left" >&2
 fi
 
 cat > /etc/ipsec.d/l2tp-psk.conf <<EOF
@@ -39,7 +41,7 @@ conn l2tp-psk
 	type=transport
 	keyexchange=ikev1
 	left=${LEFT}
-	leftid=${LEFT_ID}
+${LEFT_ID_LINE}
 	leftprotoport=17/1701
 	right=%any
 	rightprotoport=17/%any
@@ -86,7 +88,7 @@ for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
   echo 0 > "$f" 2>/dev/null || true
 done
 
-echo "[启动] libreswan + accel-ppp 用户=${USER_NAME} left=${LEFT} leftid=${LEFT_ID}"
+echo "[启动] libreswan + accel-ppp 用户=${USER_NAME} left=${LEFT} leftid=${PUBLIC_IP:-<left>}"
 
 ipsec pluto --config /etc/ipsec.conf --nofork --stderrlog &
 PLUTO_PID=$!
